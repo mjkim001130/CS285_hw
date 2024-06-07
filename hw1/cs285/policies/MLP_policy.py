@@ -18,7 +18,7 @@ import torch
 from torch import distributions
 
 from cs285.infrastructure import pytorch_util as ptu
-from cs285.policies.base_policy import BasePolicy
+from cs285.policies.base_policy import BasePolicy 
 
 
 def build_mlp(
@@ -116,6 +116,19 @@ class MLPPolicySL(BasePolicy, nn.Module, metaclass=abc.ABCMeta):
         """
         torch.save(self.state_dict(), filepath)
 
+
+    def get_action(self, observation: np.ndarray) -> np.ndarray:
+        if len(observation.shape) > 1:
+            observation = observation
+        else:
+            observation = observation[None]
+
+        observation = ptu.from_numpy(observation)
+        action = self.forward(observation)
+        action = ptu.to_numpy(action)
+
+        return action
+
     def forward(self, observation: torch.FloatTensor) -> Any:
         """
         Defines the forward pass of the network
@@ -129,7 +142,12 @@ class MLPPolicySL(BasePolicy, nn.Module, metaclass=abc.ABCMeta):
         # through it. For example, you can return a torch.FloatTensor. You can also
         # return more flexible objects, such as a
         # `torch.distributions.Distribution` object. It's up to you!
-        raise NotImplementedError
+
+        mean = self.mean_net(observation)
+        std = torch.exp(self.logstd)
+        distribution = distributions.Normal(mean, std)
+        action = distribution.rsample()
+        return action
 
     def update(self, observations, actions):
         """
@@ -141,7 +159,18 @@ class MLPPolicySL(BasePolicy, nn.Module, metaclass=abc.ABCMeta):
             dict: 'Training Loss': supervised learning loss
         """
         # TODO: update the policy and return the loss
-        loss = TODO
+        loss_fn = nn.MSELoss()
+        self.optimizer.zero_grad()
+
+        observations = ptu.from_numpy(observations)
+        actions = ptu.from_numpy(actions)
+
+        action_pred = self.forward(observations)
+        loss = loss_fn(action_pred, actions)
+
+        loss.backward()
+        self.optimizer.step()
+
         return {
             # You can add extra logging information here, but keep this line
             'Training Loss': ptu.to_numpy(loss),

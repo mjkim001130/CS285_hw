@@ -13,6 +13,7 @@ def init_gpu(use_gpu=True, gpu_id=0):
         print("GPU not detected. Defaulting to CPU.")
 
 
+
 def set_device(gpu_id):
     torch.cuda.set_device(gpu_id)
 
